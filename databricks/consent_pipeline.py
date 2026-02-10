@@ -64,8 +64,14 @@ now_unix = F.unix_timestamp(F.current_timestamp())
 # Every reject keeps its violation list (quarantine is debuggable, not a pit).
 violations = F.array_compact(
     F.array(
-        F.when(F.col("user_id").isNull(), F.lit("missing_user_id")),
-        F.when(F.col("event_id").isNull(), F.lit("missing_event_id")),
+        F.when(
+            F.col("user_id").isNull() | (F.col("user_id") == ""),
+            F.lit("missing_user_id"),
+        ),
+        F.when(
+            F.col("event_id").isNull() | (F.col("event_id") == ""),
+            F.lit("missing_event_id"),
+        ),
         F.when(
             F.col("consent").isNull() | ~F.col("consent").isin("granted", "denied"),
             F.lit("bad_consent"),
@@ -75,7 +81,10 @@ violations = F.array_compact(
             | ~F.col("platform").isin("ios", "android", "web"),
             F.lit("bad_platform"),
         ),
-        F.when(F.col("event_ts").isNull(), F.lit("bad_ts")),
+        F.when(
+            F.col("event_ts").isNull() | F.isnan(F.col("event_ts")),
+            F.lit("bad_ts"),
+        ),
         F.when(F.col("event_ts") > now_unix + 300, F.lit("future_ts")),
         F.when(F.col("event_ts") < now_unix - 7 * 86400, F.lit("stale_event")),
     )
